@@ -2,6 +2,9 @@
 using Beca.PlaylistInfo.API.Models;
 using Beca.PlaylistInfo.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using System.Text.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Beca.PlaylistInfo.API.Controllers
 {
@@ -11,6 +14,7 @@ namespace Beca.PlaylistInfo.API.Controllers
     {
         private readonly IPlaylistInfoRepository _playlistInfoRepository;
         private readonly IMapper _mapper;
+        const int maxPlaylistsPageSize = 20;
         public PlaylistsController(IPlaylistInfoRepository playlistInfoRepository, IMapper mapper)
         {
             _playlistInfoRepository = playlistInfoRepository ?? throw new ArgumentNullException(nameof(playlistInfoRepository));
@@ -18,10 +22,18 @@ namespace Beca.PlaylistInfo.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PlayListWithoutSongsDto>>> GetPlaylists()
+        public async Task<ActionResult<IEnumerable<PlayListWithoutSongsDto>>> GetPlaylists(
+            string? name, string? searchQuery, int pageNumber = 1, int pageSize = 10)
         {
+            if(pageSize > maxPlaylistsPageSize)
+            {
+                pageSize = maxPlaylistsPageSize;
+            }
             //return Ok(PlaylistDataStore.Current.Playlists);
-            var playlistEntities = await _playlistInfoRepository.GetPlaylistsAsync();
+            var (playlistEntities, paginationMetadata) = await _playlistInfoRepository.
+                GetPlaylistsAsync(name, searchQuery, pageNumber ,pageSize);
+            Response.Headers.Add("X-Pagination",
+                JsonSerializer.Serialize(paginationMetadata));
             return Ok(_mapper.Map<IEnumerable<PlayListWithoutSongsDto>>(playlistEntities));
 
         }

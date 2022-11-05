@@ -29,6 +29,38 @@ namespace Beca.PlaylistInfo.API.Services
             return await _context.Playlists.OrderBy(p => p.Name).ToListAsync();
         }
 
+        public async Task<(IEnumerable<Playlist>, PaginationMetadata)> GetPlaylistsAsync(
+            string? name, string? searchQuery, int pageNumber, int pageSize)
+        {
+            //Collection to start from
+            var collection = _context.Playlists as IQueryable<Playlist>;
+
+            if(!string.IsNullOrWhiteSpace(name))
+            {
+                name = name.Trim();
+                collection = collection.Where(p => p.Name == name);
+            }
+
+            if(!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                searchQuery = searchQuery.Trim();
+                collection = collection.Where(a => a.Name.Contains(searchQuery)
+                    || (a.Description != null && a.Description.Contains(searchQuery)));
+            }
+
+            var totalItemCount = await collection.CountAsync();
+
+            var paginationMetadata = new PaginationMetadata(
+                totalItemCount, pageSize, pageNumber);
+
+            var collectionToReturn = await collection.OrderBy(c => c.Name)
+                .Skip(pageSize * (pageNumber-1))
+                .Take(pageSize)
+                .ToListAsync();
+            
+            return (collectionToReturn, paginationMetadata);
+        }
+
         public async Task<IEnumerable<Song>> GetSongsForPlaylistAsync(int playlistId)
         {
             return await _context.Songs
